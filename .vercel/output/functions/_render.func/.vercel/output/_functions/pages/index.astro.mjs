@@ -1,0 +1,41 @@
+/* empty css                                  */
+import { c as createComponent, f as renderComponent, e as renderTemplate, m as maybeRenderHead } from '../chunks/astro/server_BGTwoHLf.mjs';
+import 'kleur/colors';
+import { $ as $$Layout } from '../chunks/Layout_ogGX1N73.mjs';
+export { renderers } from '../renderers.mjs';
+
+const $$Index = createComponent(($$result, $$props, $$slots) => {
+  return renderTemplate`${renderComponent($$result, "Layout", $$Layout, { "title": "Match Score | \u5BFB\u627E\u7075\u9B42\u5171\u9E23" }, { "default": ($$result2) => renderTemplate` ${maybeRenderHead()}<main class="flex min-h-screen flex-col items-center justify-center p-6 bg-white relative overflow-hidden"> <div class="absolute inset-0 bg-[radial-gradient(#e5e7eb_1px,transparent_1px)] [background-size:16px_16px] [mask-image:radial-gradient(ellipse_50%_50%_at_50%_50%,#000_70%,transparent_100%)]"></div> <div class="relative z-10 text-center max-w-2xl mx-auto"> <div class="mb-8 inline-block animate-float"> <h1 class="text-6xl md:text-8xl font-black tracking-tighter mb-2 bg-clip-text text-transparent bg-gradient-to-b from-gray-900 to-gray-600">
+Match Score
+</h1> <p class="text-gray-500 font-mono text-sm tracking-[0.5em] uppercase">
+灵魂契合度协议
+</p> </div> <p class="text-xl text-gray-600 mb-12 leading-relaxed font-light">
+这不是普通的心理测试。<br>
+我们将通过 50 个维度的深度扫描，<br>
+计算你们灵魂的欧几里得距离。
+</p> <div class="flex flex-col sm:flex-row gap-4 justify-center items-center"> <a href="/create" class="group relative px-8 py-4 bg-black text-white font-bold rounded-full overflow-hidden transition-all hover:scale-105 hover:shadow-2xl"> <span class="relative z-10 flex items-center gap-2">
+创建我的 Match Score
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:translate-x-1"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg> </span> <div class="absolute inset-0 bg-gray-800 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div> </a> <a href="/match" class="group relative px-8 py-4 bg-white text-black border-2 border-black font-bold rounded-full overflow-hidden transition-all hover:scale-105 hover:shadow-lg"> <span class="relative z-10 flex items-center gap-2">
+匹配 TA 的 Match Score
+<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transition-transform group-hover:translate-x-1"><path d="M5 12h14"></path><path d="m12 5 7 7-7 7"></path></svg> </span> <div class="absolute inset-0 bg-gray-50 transform scale-x-0 group-hover:scale-x-100 transition-transform origin-left"></div> </a> </div> </div> <div class="grid grid-cols-1 sm:grid-cols-3 gap-8 text-left mt-16 w-full max-w-3xl relative z-10"> <div class="p-6 bg-gray-50 rounded-2xl"> <div class="text-2xl mb-2">🧬</div> <h3 class="font-bold text-gray-900 mb-2">深度编码</h3> <p class="text-sm text-gray-500">
+基于生活习惯、金钱观、沟通模式、核心价值观四大维度。
+</p> </div> <div class="p-6 bg-gray-50 rounded-2xl"> <div class="text-2xl mb-2">🔒</div> <h3 class="font-bold text-gray-900 mb-2">隐私安全</h3> <p class="text-sm text-gray-500">
+无需注册，数据压缩为 Hash 字符串，完全掌握在自己手中。
+</p> </div> <div class="p-6 bg-gray-50 rounded-2xl"> <div class="text-2xl mb-2">🤖</div> <h3 class="font-bold text-gray-900 mb-2">AI 分析</h3> <p class="text-sm text-gray-500">
+生成犀利的社会学分析报告，直击关系痛点与优势。
+</p> </div> </div> </main> ` })}`;
+}, "/Volumes/\u6742\u9879/survey/src/pages/index.astro", void 0);
+
+const $$file = "/Volumes/杂项/survey/src/pages/index.astro";
+const $$url = "";
+
+const _page = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+    __proto__: null,
+    default: $$Index,
+    file: $$file,
+    url: $$url
+}, Symbol.toStringTag, { value: 'Module' }));
+
+const page = () => _page;
+
+export { page };
