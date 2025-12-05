@@ -16,7 +16,7 @@ export default function Questionnaire({ onComplete, scenario = 'couple' }: Quest
     const dimensionOrder = useMemo(() => {
         const dims = new Set(questions.map(q => q.dimension));
         // Maintain preferred order where possible
-        const preferredOrder: Dimension[] = ['lifestyle', 'finance', 'communication', 'intimacy', 'values'];
+        const preferredOrder: Dimension[] = ['lifestyle', 'finance', 'communication', 'intimacy', 'values', 'money', 'travel', 'social', 'emotion', 'fun'];
         return preferredOrder.filter(d => dims.has(d));
     }, [questions]);
 

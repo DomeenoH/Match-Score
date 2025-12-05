@@ -224,7 +224,7 @@ export default function MatchFlow() {
 
     // Scenario-aware labels
     const scenarioLabels = hostScenario === 'friend'
-        ? { name: '朋友默契度', emoji: '🤝', questionCount: 8 }
+        ? { name: '朋友默契度', emoji: '🤝', questionCount: 50 }
         : { name: '灵魂契合度', emoji: '💕', questionCount: 50 };
 
     if (loading) {
@@ -298,8 +298,8 @@ export default function MatchFlow() {
                                 匹配模式
                             </span>
                             <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${hostScenario === 'friend'
-                                    ? 'bg-blue-100 text-blue-700'
-                                    : 'bg-pink-100 text-pink-700'
+                                ? 'bg-blue-100 text-blue-700'
+                                : 'bg-pink-100 text-pink-700'
                                 }`}>
                                 {scenarioLabels.emoji} {scenarioLabels.name}测试
                             </span>
