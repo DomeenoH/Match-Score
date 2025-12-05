@@ -39,19 +39,24 @@ export const calculateDistance = (profileA: SoulProfile, profileB: SoulProfile):
     const answersA = profileA.answers;
     const answersB = profileB.answers;
 
-    // 假设答案数组长度一致
+    // 必须验证 answersA.length === 50，如果长度不符则返回 0 或抛错
+    if (answersA.length !== 50 || answersA.length !== answersB.length) {
+        console.error(`Answer array length mismatch or unexpected length. Expected 50, got A:${answersA.length}, B:${answersB.length}`);
+        return 0;
+    }
+
     let squaredDifferenceSum = 0;
     for (let i = 0; i < answersA.length; i++) {
-        // 计算 (A[i] - B[i])^2，并求和
         squaredDifferenceSum += Math.pow(answersA[i] - answersB[i], 2);
     }
 
-    // 欧几里得距离的倒数作为初步匹配度 (距离越近，匹配度越高)
-    // 这是一个初步的 Vibe Score，AI会基于此做更复杂的分析
     const distance = Math.sqrt(squaredDifferenceSum);
-    // 归一化到一个 0-100 的分数 (需要根据最大可能距离调整，这里先用简化版)
-    // 最大距离：12道题，每题最大差值4 (5-1)。sqrt(12 * 4^2) = sqrt(12 * 16) = sqrt(192) ≈ 13.85
-    const maxPossibleDistance = Math.sqrt(answersA.length * Math.pow(5 - 1, 2));
+
+    // 归一化：基于 50 题计算最大可能距离
+    // Max Distance = sqrt(50 * (5 - 1)^2) = sqrt(50 * 16) = sqrt(800) ≈ 28.28
+    const maxPossibleDistance = Math.sqrt(50 * 16);
+
+    // 匹配度公式: 100 - (实际距离 / 最大距离) * 100
     const matchScore = 100 - (distance / maxPossibleDistance) * 100;
 
     return Math.max(0, parseFloat(matchScore.toFixed(1))); // 确保分数在 0-100
