@@ -1,5 +1,5 @@
 import { type SoulProfile, QUESTIONS } from './questions';
-import { calculateDistance } from './codec';
+
 
 // 新增接口：用于封装发给 LLM 的数据结构
 export interface ComparisonPoint {
@@ -25,6 +25,29 @@ export interface AnalysisResult {
     summary: string;
     details: string;
 }
+
+/**
+ * 计算两个 SoulProfile 之间的匹配度（距离）
+ * 距离越小，匹配度越高
+ */
+export const calculateDistance = (profileA: SoulProfile, profileB: SoulProfile): number => {
+    let totalDifference = 0;
+    const numQuestions = QUESTIONS.length;
+
+    for (let i = 0; i < numQuestions; i++) {
+        const answerA = profileA.answers[i];
+        const answerB = profileB.answers[i];
+        totalDifference += Math.abs(answerA - answerB);
+    }
+
+    // 将总差异标准化为 0-100 的匹配度分数
+    // 每题差异最大为 4 (0 vs 4)，50 题最大差异为 50 * 4 = 200
+    // 匹配度 = (1 - (总差异 / 最大总差异)) * 100
+    const maxTotalDifference = numQuestions * 4;
+    const matchScore = Math.round((1 - (totalDifference / maxTotalDifference)) * 100);
+
+    return matchScore;
+};
 
 /**
  * 将两个 SoulProfile 转化为 LLM 需要的结构化对比数据
@@ -68,7 +91,12 @@ export const createAIPrompt = (context: AIContext): string => {
     const conflicts = comparisonMatrix.filter(c => c.difference >= 3); // 差异度 >= 3 为高冲突
 
     // 构建核心 Prompt
-    let prompt = `你是一位顶尖的、以数据驱动的“关系社会学家”。你的任务是根据两个人的50个维度问卷结果，生成一份客观、犀利、结构化的相性分析报告。两人基础匹配度为 ${matchScore}%。请从三个维度（优势、雷区、长期建议）分析，并使用中文分点作答。`;
+    let prompt = `你是一位阅人无数的“资深情感观察员”，擅长用最直白、接地气的大白话分析人际关系。你的任务是根据两个人的50个维度问卷结果，生成一份“一针见血”但又充满温度的相性分析报告。两人基础匹配度为 ${matchScore}%。请从三个维度（优势、雷区、长期建议）分析，并使用中文分点作答。
+
+请注意：
+1. **说人话**：不要用心理学术语，要像老朋友聊天一样自然。
+2. **直击痛点**：不要模棱两可，好的坏的都要直接指出来。
+3. **结构清晰**：严格按照下方的格式输出。`;
 
     // 优势分析
     prompt += "\n\n--- 优势维度（Difference <= 1）：两人天然契合点 ---";
@@ -89,41 +117,96 @@ export const createAIPrompt = (context: AIContext): string => {
     // 提示 AI 根据四个维度（lifestyle, finance, communication, values）的差异度，给出概括性评价。
 
     prompt += "\n\n请根据上述数据和风格要求，生成报告的最终内容，报告应包含以下结构：\n";
-    prompt += "1. 核心结论（一句话总结，直指本质）\n";
-    prompt += "2. 关键优势分析（列点阐述）\n";
-    prompt += "3. 潜在雷区预警（列点阐述，语言要犀利）\n";
-    prompt += "4. 长期相处建议（给出可操作的策略）\n";
+    prompt += "1. 核心结论（一句话总结，直指本质，不要废话）\n";
+    prompt += "2. 关键优势分析（列点阐述，说明这些默契在生活中意味着什么）\n";
+    prompt += "3. 潜在雷区预警（列点阐述，直接指出如果不注意会吵什么架）\n";
+    prompt += "4. 长期相处建议（给出马上能用的实操建议）\n";
 
     return prompt;
 };
 
-const retryFetch = async (url: string, options: RequestInit, retries = 3, backoff = 1000): Promise<Response> => {
+export const retryFetch = async (
+    url: string,
+    options: RequestInit,
+    retries = 3,
+    backoff = 1000,
+    onRetry?: (count: number) => void
+): Promise<Response> => {
     try {
         const response = await fetch(url, options);
         if (response.ok) return response;
 
         // Retry on specific error codes
         if ([429, 500, 502, 503, 504].includes(response.status) && retries > 0) {
-            console.warn(`Request failed with status ${response.status}. Retrying in ${backoff}ms...`);
+            const currentRetry = 4 - retries; // Assuming initial retries = 3
+            console.warn(`Request failed with status ${response.status}. Retrying in ${backoff}ms... (Attempt ${currentRetry})`);
+
+            if (onRetry) onRetry(currentRetry);
+
             await new Promise(resolve => setTimeout(resolve, backoff));
-            return retryFetch(url, options, retries - 1, backoff * 2);
+            return retryFetch(url, options, retries - 1, backoff * 2, onRetry);
         }
 
         return response;
     } catch (error) {
         if (retries > 0) {
-            console.warn(`Request failed with error. Retrying in ${backoff}ms...`, error);
+            const currentRetry = 4 - retries;
+            console.warn(`Request failed with error. Retrying in ${backoff}ms... (Attempt ${currentRetry})`, error);
+
+            if (onRetry) onRetry(currentRetry);
+
             await new Promise(resolve => setTimeout(resolve, backoff));
-            return retryFetch(url, options, retries - 1, backoff * 2);
+            return retryFetch(url, options, retries - 1, backoff * 2, onRetry);
         }
         throw error;
     }
 };
 
+export const testAIConnection = async (
+    endpoint: string,
+    apiKey?: string,
+    model?: string
+): Promise<any> => {
+    const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+    };
+    if (apiKey) {
+        headers['Authorization'] = `Bearer ${apiKey}`;
+    }
+
+    const isInternal = endpoint.endsWith('/api/analyze');
+    const body = isInternal
+        ? JSON.stringify({
+            prompt: "Hello, this is a connection test.",
+        })
+        : JSON.stringify({
+            model: model || 'gemini-2.5-flash-lite',
+            messages: [{ role: 'user', content: "Hello, this is a connection test." }]
+        });
+
+    const response = await retryFetch(endpoint, {
+        method: 'POST',
+        headers,
+        body,
+    });
+
+    const contentType = response.headers.get('content-type');
+    if (!response.ok) {
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Test failed: ${response.status} ${response.statusText} - ${errorText.substring(0, 200)}`);
+    }
+
+    if (contentType && contentType.includes('application/json')) {
+        return await response.json();
+    }
+    return await response.text();
+};
+
 export const fetchAIAnalysis = async (
     profileA: SoulProfile,
     profileB: SoulProfile,
-    onRetry?: (count: number) => void
+    onRetry?: (count: number) => void,
+    onStream?: (text: string) => void
 ): Promise<AnalysisResult> => {
     // 1. Generate Context
     const context = generateAIContext(profileA, profileB);
@@ -131,49 +214,52 @@ export const fetchAIAnalysis = async (
     // 2. Create Prompt
     const prompt = createAIPrompt(context);
 
-    const endpoint = import.meta.env.VITE_CUSTOM_AI_ENDPOINT || '/api/analyze';
+    // Always use the internal API endpoint.
+    const endpoint = '/api/analyze';
 
     try {
-        // Wrapper to track retries
-        const fetchWithTracking = async (url: string, options: RequestInit, retries = 3, backoff = 1000): Promise<Response> => {
-            try {
-                const response = await fetch(url, options);
-                if (response.ok) return response;
-
-                if ([429, 500, 502, 503, 504].includes(response.status) && retries > 0) {
-                    if (onRetry) onRetry(4 - retries); // 1st retry, 2nd retry...
-                    await new Promise(resolve => setTimeout(resolve, backoff));
-                    return fetchWithTracking(url, options, retries - 1, backoff * 2);
-                }
-                return response;
-            } catch (error) {
-                if (retries > 0) {
-                    if (onRetry) onRetry(4 - retries);
-                    await new Promise(resolve => setTimeout(resolve, backoff));
-                    return fetchWithTracking(url, options, retries - 1, backoff * 2);
-                }
-                throw error;
-            }
-        };
-
-        const response = await fetchWithTracking(endpoint, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
+        const response = await retryFetch(
+            endpoint,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ prompt, stream: true }), // Signal streaming
             },
-            body: JSON.stringify({ prompt }),
-        });
+            3,
+            1000,
+            onRetry
+        );
 
         if (!response.ok) {
-            throw new Error('AI Analysis request failed');
+            const errorText = await response.text().catch(() => 'Unknown error');
+            throw new Error(`AI Analysis request failed: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
-        const data = await response.json();
+        const reader = response.body?.getReader();
+        const decoder = new TextDecoder();
+        let accumulatedText = '';
+
+        if (reader) {
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                accumulatedText += chunk;
+                if (onStream) onStream(accumulatedText);
+            }
+        } else {
+            // Fallback for non-streaming environments
+            const data = await response.json();
+            accumulatedText = data.reportText;
+        }
 
         return {
             compatibilityScore: context.matchScore,
             summary: `基于数据的灵魂契合度：${context.matchScore}%`,
-            details: data.reportText
+            details: accumulatedText
         };
     } catch (error) {
         console.error("AI Analysis Error:", error);

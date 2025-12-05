@@ -87,7 +87,7 @@ export default function MatchFlow() {
                 <p className="text-gray-500 mt-2">AI 正在对比你们的 50 个维度数据</p>
                 {retryCount > 0 && (
                     <div className="mt-4 p-3 bg-yellow-50 text-yellow-800 rounded-lg text-sm animate-pulse border border-yellow-200">
-                        ⚠️ 对方服务响应缓慢，正在尝试第 {retryCount} 次重连...
+                        AI 服务连接不稳定，正在进行第 {retryCount} 次重试...
                     </div>
                 )}
             </div>

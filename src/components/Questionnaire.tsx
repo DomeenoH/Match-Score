@@ -69,28 +69,31 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
 
     return (
         <div className="max-w-3xl mx-auto p-6 bg-white border border-gray-200 rounded-lg shadow-sm">
-            {/* Progress Header */}
-            <div className="sticky top-0 bg-white z-10 pb-4 border-b border-gray-100 mb-6">
-                <div className="flex justify-between items-end mb-2">
-                    <h2 className="text-xl font-bold text-gray-900">灵魂契合度测试</h2>
-                    <span className="text-sm font-mono text-gray-500">{progress}% 完成</span>
+            {/* Sticky Header Group */}
+            <div className="sticky top-16 z-30 bg-white/95 backdrop-blur-sm -mx-6 px-6 pt-4 pb-6 shadow-sm mb-8 border-b border-gray-100 transition-all duration-300">
+                {/* Progress Bar */}
+                <div className="mb-6">
+                    <div className="flex justify-between items-end mb-2">
+                        <h2 className="text-xl font-bold text-gray-900">灵魂契合度测试</h2>
+                        <span className="text-sm font-mono text-gray-500">{progress}% 完成</span>
+                    </div>
+                    <div className="w-full bg-gray-100 rounded-full h-2">
+                        <div
+                            className="bg-black h-2 rounded-full transition-all duration-500 ease-out"
+                            style={{ width: `${progress}%` }}
+                        ></div>
+                    </div>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-2">
-                    <div
-                        className="bg-black h-2 rounded-full transition-all duration-500 ease-out"
-                        style={{ width: `${progress}%` }}
-                    ></div>
-                </div>
-            </div>
 
-            {/* Section Header */}
-            <div className="mb-8 bg-gray-50 p-6 rounded-xl border border-gray-100">
-                <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                    {DIMENSION_DETAILS[currentDimension].title}
-                </h3>
-                <p className="text-gray-600">
-                    {DIMENSION_DETAILS[currentDimension].description}
-                </p>
+                {/* Current Section Info */}
+                <div className="bg-gray-50 p-4 rounded-xl border border-gray-100">
+                    <h3 className="text-lg font-bold text-gray-900 mb-1">
+                        {DIMENSION_DETAILS[currentDimension].title}
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                        {DIMENSION_DETAILS[currentDimension].description}
+                    </p>
+                </div>
             </div>
 
             {/* Questions List */}

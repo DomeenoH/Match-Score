@@ -4,8 +4,9 @@ import tailwind from '@astrojs/tailwind';
 
 // https://astro.build/config
 export default defineConfig({
+  output: 'server',
   integrations: [react(), tailwind()],
   vite: {
-    envPrefix: 'VITE_',
+    envPrefix: ['VITE_', 'PUBLIC_'],
   },
 });
