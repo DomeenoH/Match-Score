@@ -20,24 +20,32 @@ export default function MatchFlow() {
     const [retryCount, setRetryCount] = useState(0);
 
     const handleMatchStart = (hash: string) => {
-        console.log("Match started with hash:", hash);
+        console.log("MatchFlow: handleMatchStart called with hash:", hash);
         setHostHash(hash);
+
         const url = new URL(window.location.href);
         url.searchParams.set('host', hash);
         window.history.pushState({}, '', url);
+        console.log("MatchFlow: URL updated to", url.toString());
 
         // Auto-start analysis if local user exists
         const localHash = localStorage.getItem('soul_hash');
+        console.log("MatchFlow: Checking local hash:", localHash);
+
         if (localHash) {
             const profile = decodeSoul(localHash);
             if (profile) {
+                console.log("MatchFlow: Local hash valid, auto-starting analysis");
                 setMyHash(localHash);
                 runAnalysis(hash, localHash);
+            } else {
+                console.log("MatchFlow: Local hash invalid");
             }
         }
     };
 
     useEffect(() => {
+        console.log("MatchFlow: Mount/Effect triggered");
         const savedConfig = localStorage.getItem('soul_match_ai_config');
         if (savedConfig) {
             try {
@@ -55,6 +63,7 @@ export default function MatchFlow() {
     };
 
     const runAnalysis = async (hHash: string, mHash: string) => {
+        console.log("MatchFlow: runAnalysis started", { hHash, mHash });
         setLoading(true);
         setError(null);
         setRetryCount(0);
@@ -64,6 +73,7 @@ export default function MatchFlow() {
             const myProfile = decodeSoul(mHash);
 
             if (hostProfile && myProfile) {
+                console.log("MatchFlow: Profiles decoded successfully, fetching AI analysis...");
                 const result = await fetchAIAnalysis(
                     hostProfile,
                     myProfile,
@@ -77,12 +87,14 @@ export default function MatchFlow() {
                     },
                     aiConfig // Pass user config
                 );
+                console.log("MatchFlow: AI analysis complete", result);
                 setAnalysis(result);
             } else {
+                console.error("MatchFlow: Failed to decode profiles");
                 setError("解析灵魂档案失败，请重试。");
             }
         } catch (e) {
-            console.error(e);
+            console.error("MatchFlow: Analysis error", e);
             setError("分析过程中发生错误，请稍后重试。");
         } finally {
             setLoading(false);
@@ -91,9 +103,11 @@ export default function MatchFlow() {
     };
 
     useEffect(() => {
+        console.log("MatchFlow: URL Params Effect running");
         const params = new URLSearchParams(window.location.search);
         const hParam = params.get('host');
         const gParam = params.get('guest');
+        console.log("MatchFlow: URL Params", { hParam, gParam });
 
         if (hParam) {
             setHostHash(hParam);
@@ -103,9 +117,11 @@ export default function MatchFlow() {
         const localHash = localStorage.getItem('soul_hash');
 
         if (hParam && gParam) {
+            console.log("MatchFlow: Host & Guest params found, starting analysis");
             setMyHash(gParam);
             runAnalysis(hParam, gParam);
         } else if (hParam && localHash) {
+            console.log("MatchFlow: Host param & Local hash found, starting analysis");
             // If we have host param AND a local hash, use local hash as guest
             // Verify it's valid first
             const profile = decodeSoul(localHash);
