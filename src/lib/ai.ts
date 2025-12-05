@@ -38,28 +38,10 @@ export interface AnalysisResult {
  * v2.1: 引入加权算法
  */
 export const calculateDistance = (profileA: SoulProfile, profileB: SoulProfile): number => {
-    let totalWeightedDiff = 0;
-    let maxWeightedDiff = 0;
-    const numQuestions = QUESTIONS.length;
-
-    for (let i = 0; i < numQuestions; i++) {
-        const question = QUESTIONS[i];
-        const weight = question.weight || 1; // Default weight 1
-
-        const answerA = profileA.answers[i] ?? 3;
-        const answerB = profileB.answers[i] ?? 3;
-
-        const diff = Math.abs(answerA - answerB);
-
-        totalWeightedDiff += diff * weight;
-        maxWeightedDiff += 4 * weight; // Max diff per question is 4
-    }
-
-    // 将总差异标准化为 0-100 的匹配度分数
-    // 匹配度 = (1 - (加权总差异 / 最大加权总差异)) * 100
-    const matchScore = Math.round((1 - (totalWeightedDiff / maxWeightedDiff)) * 100);
-
-    return matchScore;
+    // Detect scenario from profiles (prefer host/profileA, then profileB, then default)
+    const scenario = profileA.type || profileB.type || 'couple';
+    const questions = getQuestionsForScenario(scenario);
+    return calculateDistanceWithQuestions(profileA, profileB, questions);
 };
 
 /**
