@@ -295,13 +295,17 @@ export interface AIConfig {
 
 // 新增：生成唯一且与顺序无关的缓存键
 // 通过排序两个 profiles 的 answers 数组的 JSON 字符串，确保 A,B 和 B,A 得到相同的 Key。
+// v2.2: 增加 type 字段以区分不同场景（couple vs friend）
 export const generateCacheKey = (profileA: SoulProfile, profileB: SoulProfile): string => {
+    // 标准化场景类型（向后兼容：undefined 视为 couple）
+    const scenarioType = profileA.type || profileB.type || 'couple';
+
     // 确保使用最新的 V2.0 问卷长度 50
     if (profileA.answers.length !== 50 || profileB.answers.length !== 50) {
         console.error("Profile answers length mismatch for caching.");
         // 在长度不匹配时，使用默认的 name/version 结合作为 fallback
         const keyParts = [profileA.name || 'A', profileB.name || 'B'].sort();
-        return `match_v${profileA.version || '1'}_${keyParts.join('_')}`;
+        return `match_${scenarioType}_v${profileA.version || '1'}_${keyParts.join('_')}`;
     }
 
     // 将两个 answers 数组转换为字符串
@@ -311,8 +315,8 @@ export const generateCacheKey = (profileA: SoulProfile, profileB: SoulProfile): 
     // 排序这两个字符串，以保证 key 的顺序无关性
     const sortedKeys = [answersStrA, answersStrB].sort();
 
-    // 结合问卷版本号 V2.0 (或取 profileA.version)
-    return `match_v${profileA.version || 2}_${sortedKeys.join('|')}`;
+    // 结合场景类型和问卷版本号
+    return `match_${scenarioType}_v${profileA.version || 2}_${sortedKeys.join('|')}`;
 };
 
 export const fetchAIAnalysis = async (
