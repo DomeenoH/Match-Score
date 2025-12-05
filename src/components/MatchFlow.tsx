@@ -102,10 +102,10 @@ export default function MatchFlow() {
             <div className="max-w-4xl mx-auto">
                 <div className="mb-8 text-center bg-gray-50 p-6 rounded-xl border border-gray-100">
                     <span className="inline-block px-3 py-1 bg-black text-white rounded-full text-xs font-mono mb-3">
-                        MATCHING MODE
+                        匹配模式 (MATCHING MODE)
                     </span>
                     <h2 className="text-2xl font-bold text-gray-900 mb-2">对方已就位，请完成你的 Soul Profile</h2>
-                    <p className="text-gray-500 text-sm font-mono">Target Hash: {hostHash.substring(0, 12)}...</p>
+                    <p className="text-gray-500 text-sm font-mono">目标 Hash: {hostHash.substring(0, 12)}...</p>
                 </div>
                 <Questionnaire onComplete={handleQuestionnaireComplete} />
             </div>

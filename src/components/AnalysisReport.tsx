@@ -8,15 +8,7 @@ interface AnalysisReportProps {
 }
 
 export default function AnalysisReport({ result, hostInfo, guestInfo }: AnalysisReportProps) {
-    // Simple parser to extract sections from the mock AI response
-    // The mock response structure is:
-    // [System: ...]
-    // ... prompt content ...
-    // 1. 核心结论 ...
-    // 2. 关键优势分析 ...
-    // 3. 潜在雷区预警 ...
-    // 4. 长期相处建议 ...
-
+    // Parse the AI response which is expected to follow a specific structure
     const parseSection = (text: string, title: string, nextTitle?: string) => {
         const startIndex = text.indexOf(title);
         if (startIndex === -1) return null;
@@ -27,30 +19,25 @@ export default function AnalysisReport({ result, hostInfo, guestInfo }: Analysis
             if (endIndex !== -1) {
                 content = text.substring(startIndex + title.length, endIndex).trim();
             } else {
+                // Try to find the next section by number if specific title fails
+                // But for now, let's assume the AI follows the prompt structure
                 content = text.substring(startIndex + title.length).trim();
             }
         } else {
             content = text.substring(startIndex + title.length).trim();
         }
 
-        // Clean up leading colons or newlines
-        return content.replace(/^[:：\n]+/, '').trim();
+        // Clean up leading colons, newlines, or parentheses
+        return content.replace(/^[:：\n\(\)（）]+/, '').trim();
     };
-
-    // Since we are currently using a mock response that contains the PROMPT, 
-    // we need to simulate the "Response" part. 
-    // In a real app, 'result.details' would be the AI's output.
-    // For this demo, let's extract the "comparison points" from the prompt text 
-    // which are embedded in the mock details.
-
-    // However, the prompt text itself has sections like:
-    // --- 优势维度 ... ---
-    // --- 核心雷区 ... ---
 
     const rawText = result.details;
 
-    const strengthsSection = parseSection(rawText, "--- 优势维度（Difference <= 1）：两人天然契合点 ---", "--- 核心雷区");
-    const conflictsSection = parseSection(rawText, "--- 核心雷区（Difference >= 3）：未来潜在的冲突爆发点 ---", "--- 维度总结");
+    // Parsing logic based on the prompt structure
+    const conclusion = parseSection(rawText, "1. 核心结论", "2. 关键优势分析") || "暂无结论";
+    const strengths = parseSection(rawText, "2. 关键优势分析", "3. 潜在雷区预警");
+    const conflicts = parseSection(rawText, "3. 潜在雷区预警", "4. 长期相处建议");
+    const advice = parseSection(rawText, "4. 长期相处建议");
 
     // Helper to render bullet points
     const renderList = (text: string | null) => {
@@ -63,7 +50,7 @@ export default function AnalysisReport({ result, hostInfo, guestInfo }: Analysis
                     return (
                         <li key={i} className="flex items-start">
                             <span className="mr-2 mt-1.5 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-current opacity-60"></span>
-                            <span className="text-sm leading-relaxed">{cleanLine.replace(/^- /, '')}</span>
+                            <span className="text-sm leading-relaxed">{cleanLine.replace(/^- /, '').replace(/^\d+\. /, '')}</span>
                         </li>
                     );
                 })}
@@ -75,8 +62,8 @@ export default function AnalysisReport({ result, hostInfo, guestInfo }: Analysis
         <div className="max-w-4xl mx-auto p-6 sm:p-10 bg-white border border-gray-200 rounded-2xl shadow-xl">
             {/* Header Info */}
             <div className="flex justify-between items-center mb-8 text-xs font-mono text-gray-400 border-b border-gray-100 pb-4">
-                <div>HOST: {hostInfo || 'Unknown'}</div>
-                <div>GUEST: {guestInfo || 'Unknown'}</div>
+                <div>发起者(A): {hostInfo || 'Unknown'}</div>
+                <div>匹配者(B): {guestInfo || 'Unknown'}</div>
             </div>
 
             <div className="text-center mb-12">
@@ -108,7 +95,7 @@ export default function AnalysisReport({ result, hostInfo, guestInfo }: Analysis
                             />
                         </svg>
                         <div className="absolute flex flex-col items-center">
-                            <span className="text-5xl font-black tracking-tighter">{result.compatibilityScore}%</span>
+                            <span className="text-4xl font-black tracking-tighter">{result.compatibilityScore}%</span>
                             <span className="text-xs font-bold text-gray-400 uppercase tracking-widest mt-1">Match</span>
                         </div>
                     </div>
@@ -116,13 +103,13 @@ export default function AnalysisReport({ result, hostInfo, guestInfo }: Analysis
             </div>
 
             <div className="space-y-8">
-                {/* Core Conclusion (Mocked for now as we don't have real AI output yet) */}
+                {/* Core Conclusion */}
                 <div className="bg-gray-900 text-white p-8 rounded-xl shadow-lg transform hover:scale-[1.01] transition-transform">
                     <h3 className="text-lg font-bold mb-3 flex items-center">
                         <span className="mr-2">💡</span> 核心结论
                     </h3>
                     <p className="text-lg leading-relaxed font-medium opacity-90">
-                        {result.summary}
+                        {conclusion}
                     </p>
                 </div>
 
@@ -134,7 +121,7 @@ export default function AnalysisReport({ result, hostInfo, guestInfo }: Analysis
                             关键优势
                         </h3>
                         <div className="text-green-900">
-                            {renderList(strengthsSection)}
+                            {renderList(strengths)}
                         </div>
                     </div>
 
@@ -145,22 +132,17 @@ export default function AnalysisReport({ result, hostInfo, guestInfo }: Analysis
                             潜在雷区
                         </h3>
                         <div className="text-red-900">
-                            {renderList(conflictsSection)}
+                            {renderList(conflicts)}
                         </div>
                     </div>
                 </div>
 
-                {/* Advice (Placeholder for real AI output) */}
+                {/* Advice */}
                 <div className="bg-blue-50 p-8 rounded-xl border border-blue-100">
                     <h3 className="text-blue-900 font-bold mb-4">🔮 长期相处建议</h3>
-                    <p className="text-blue-800 leading-relaxed">
-                        (此处将显示 AI 生成的详细建议。当前为演示模式，展示的是 Prompt 中的原始数据结构。)
-                        <br /><br />
-                        {/* Just showing raw details for debugging/demo purposes if needed, or hide it */}
-                        <span className="text-xs opacity-50 font-mono block mt-4 border-t border-blue-200 pt-4">
-                            Debug Info: Raw Prompt Data Available
-                        </span>
-                    </p>
+                    <div className="text-blue-800 leading-relaxed">
+                        {renderList(advice)}
+                    </div>
                 </div>
             </div>
 

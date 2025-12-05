@@ -104,15 +104,33 @@ export const fetchAIAnalysis = async (profileA: SoulProfile, profileB: SoulProfi
     // 2. Create Prompt
     const prompt = createAIPrompt(context);
 
-    // Mock API call delay
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    try {
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ prompt }),
+        });
 
-    // In a real app, we would send 'prompt' to the LLM.
-    // For now, we'll return a mock response that proves we generated the context correctly.
+        if (!response.ok) {
+            throw new Error('AI Analysis request failed');
+        }
 
-    return {
-        compatibilityScore: context.matchScore,
-        summary: `基于数据的灵魂契合度：${context.matchScore}%`,
-        details: `[System: This is a mock response. In production, the following prompt would be sent to the AI:]\n\n${prompt}`
-    };
+        const data = await response.json();
+
+        return {
+            compatibilityScore: context.matchScore,
+            summary: `基于数据的灵魂契合度：${context.matchScore}%`,
+            details: data.reportText
+        };
+    } catch (error) {
+        console.error("AI Analysis Error:", error);
+        // Fallback to mock response if API fails
+        return {
+            compatibilityScore: context.matchScore,
+            summary: `基于数据的灵魂契合度：${context.matchScore}% (离线模式)`,
+            details: `[系统提示：AI 服务暂时不可用，以下是基于原始数据的分析预览]\n\n${prompt}`
+        };
+    }
 };

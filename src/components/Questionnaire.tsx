@@ -94,7 +94,7 @@ export default function Questionnaire({ onComplete }: QuestionnaireProps) {
             </div>
 
             {/* Questions List */}
-            <div className="space-y-10">
+            <div key={currentDimIndex} className="space-y-10 animate-in fade-in slide-in-from-right-4 duration-500 ease-out">
                 {currentQuestions.map((question) => {
                     const globalIndex = QUESTIONS.findIndex(q => q.id === question.id);
                     return (
