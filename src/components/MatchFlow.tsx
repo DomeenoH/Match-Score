@@ -24,6 +24,16 @@ export default function MatchFlow() {
         const url = new URL(window.location.href);
         url.searchParams.set('host', hash);
         window.history.pushState({}, '', url);
+
+        // Auto-start analysis if local user exists
+        const localHash = localStorage.getItem('soul_hash');
+        if (localHash) {
+            const profile = decodeSoul(localHash);
+            if (profile) {
+                setMyHash(localHash);
+                runAnalysis(hash, localHash);
+            }
+        }
     };
 
     useEffect(() => {
