@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import type { AnalysisResult } from '../lib/ai';
+import React, { useState, useRef } from 'react';
+import type { AnalysisResult, ComparisonPoint } from '../lib/ai';
+import html2canvas from 'html2canvas';
 
 interface AnalysisReportProps {
     result: AnalysisResult;
@@ -7,28 +8,25 @@ interface AnalysisReportProps {
     guestName?: string;
     hostHash?: string;
     guestHash?: string;
+    comparisonMatrix?: ComparisonPoint[];
 }
 
-export default function AnalysisReport({ result, hostName, guestName, hostHash, guestHash }: AnalysisReportProps) {
+export default function AnalysisReport({ result, hostName, guestName, hostHash, guestHash, comparisonMatrix }: AnalysisReportProps) {
     const rawText = result.details;
     const nameA = hostName || 'A';
     const nameB = guestName || 'B';
-    const [copiedLink, setCopiedLink] = useState(false);
     const [copiedHash, setCopiedHash] = useState(false);
+    const [generatingImage, setGeneratingImage] = useState(false);
+    const reportRef = useRef<HTMLDivElement>(null);
+
+    // Check if we are in fallback mode
+    const isFallback = rawText.includes('[系统提示：AI 服务暂时不可用');
 
     // Log raw text for debugging
     console.log('Analysis Report Raw Text:', rawText);
 
     // Robust parsing using Regex to find sections regardless of formatting (markdown, numbering, etc.)
     const extractSection = (text: string, keyword: string, nextKeyword?: string) => {
-        // Regex to find the keyword line:
-        // (?:^|\n) -> Start of string or newline
-        // [#*\s]* -> Optional markdown (#, *) and whitespace
-        // \d*[\.\、]? -> Optional numbering (1., 1、)
-        // \s* -> Optional whitespace
-        // ${keyword} -> The target keyword
-        // .*?(?:\n|$) -> Match until end of line
-        // Use string concatenation to avoid template literal issues with regex
         const pattern = '(?:^|\\n)[#*\\s]*\\d*[\\.\\、]?\\s*' + keyword + '.*?(?:\\n|$)';
         const keywordRegex = new RegExp(pattern, 'i');
 
@@ -39,8 +37,6 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
 
         let endIndex = text.length;
         if (nextKeyword) {
-            // Find the next keyword starting from where the current section begins
-            // We search in the substring to avoid finding the keyword if it appeared earlier (unlikely but safe)
             const remainingText = text.slice(startIndex);
             const nextPattern = '(?:^|\\n)[#*\\s]*\\d*[\\.\\、]?\\s*' + nextKeyword;
             const nextKeywordRegex = new RegExp(nextPattern, 'i');
@@ -50,7 +46,6 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
             }
         }
 
-        // Extract and clean up: remove leading/trailing whitespace and separator lines (---)
         let content = text.slice(startIndex, endIndex).trim();
         return content.replace(/^[-—]+/, '').replace(/[-—]+$/, '').trim();
     };
@@ -71,7 +66,6 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
 
             if (!part) return null;
 
-            // Highlight names
             const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             const pattern = `(${escapeRegExp(nameA)}|${escapeRegExp(nameB)})`;
             const nameRegex = new RegExp(pattern, 'g');
@@ -116,7 +110,6 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
                 {text.split('\n').map((line, i) => {
                     const cleanLine = line.trim();
                     if (!cleanLine || cleanLine.startsWith('---')) return null;
-                    // Remove bullet points (*, -) and numbering (1.) for cleaner display
                     const content = cleanLine.replace(/^[*•-]\s*/, '').replace(/^\d+[\.\、]\s*/, '');
                     return (
                         <li key={i} className="flex items-start">
@@ -129,13 +122,28 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
         );
     };
 
-    const handleCopyLink = () => {
-        if (hostHash && guestHash) {
-            const url = `${window.location.origin}/match?host=${hostHash}&guest=${guestHash}`;
-            navigator.clipboard.writeText(url).then(() => {
-                setCopiedLink(true);
-                setTimeout(() => setCopiedLink(false), 2000);
+    const handleShareImage = async () => {
+        if (!reportRef.current) return;
+        setGeneratingImage(true);
+        try {
+            const canvas = await html2canvas(reportRef.current, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: '#ffffff',
+                logging: false,
+                windowWidth: 1200, // Force desktop width for better layout
             });
+
+            const image = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `MatchScore_${nameA}_${nameB}.png`;
+            link.click();
+        } catch (error) {
+            console.error("Failed to generate image:", error);
+            alert("生成图片失败，请重试");
+        } finally {
+            setGeneratingImage(false);
         }
     };
 
@@ -149,8 +157,70 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
         }
     };
 
+    // Visual Fallback Component
+    const VisualFallback = () => {
+        if (!comparisonMatrix) return <p>暂无详细数据</p>;
+
+        // Group by dimension
+        const grouped = comparisonMatrix.reduce((acc, curr) => {
+            if (!acc[curr.dimension]) acc[curr.dimension] = [];
+            acc[curr.dimension].push(curr);
+            return acc;
+        }, {} as Record<string, ComparisonPoint[]>);
+
+        const dimensionNames: Record<string, string> = {
+            lifestyle: '生活习惯',
+            finance: '金钱财务',
+            communication: '沟通情感',
+            intimacy: '亲密家庭',
+            values: '核心价值'
+        };
+
+        return (
+            <div className="space-y-8">
+                <div className="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-yellow-800 text-sm mb-6">
+                    <p className="font-bold flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>
+                        AI 服务连接超时
+                    </p>
+                    <p className="mt-1">已为您切换至“可视化数据模式”，直接展示双方的答题差异。</p>
+                </div>
+
+                {Object.entries(grouped).map(([dim, items]) => (
+                    <div key={dim} className="bg-white rounded-xl border border-gray-100 overflow-hidden">
+                        <div className="bg-gray-50 px-4 py-3 border-b border-gray-100 font-bold text-gray-700">
+                            {dimensionNames[dim] || dim}
+                        </div>
+                        <div className="divide-y divide-gray-50">
+                            {items.map(item => (
+                                <div key={item.id} className="p-4 hover:bg-gray-50 transition-colors">
+                                    <div className="text-sm font-medium text-gray-900 mb-2">{item.question}</div>
+                                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                                        <div className={`flex-1 p-2 rounded ${item.difference === 0 ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-600'}`}>
+                                            <span className="font-bold mr-1">{nameA}:</span> {item.A_label}
+                                        </div>
+                                        <div className="mx-2 font-mono font-bold text-gray-300">VS</div>
+                                        <div className={`flex-1 p-2 rounded ${item.difference === 0 ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-600'}`}>
+                                            <span className="font-bold mr-1">{nameB}:</span> {item.B_label}
+                                        </div>
+                                    </div>
+                                    {item.difference >= 3 && (
+                                        <div className="mt-2 text-xs text-red-500 flex items-center gap-1">
+                                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+                                            差异显著，建议沟通
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        );
+    };
+
     return (
-        <div className="max-w-4xl mx-auto p-6 sm:p-10 bg-white border border-gray-200 rounded-2xl shadow-xl">
+        <div ref={reportRef} className="max-w-4xl mx-auto p-6 sm:p-10 bg-white border border-gray-200 rounded-2xl shadow-xl">
             <div className="text-center mb-10">
                 <div className="inline-block p-3 rounded-full bg-black text-white mb-4">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
@@ -193,69 +263,74 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
                 </div>
             </div>
 
-            <div className="space-y-8">
-                {/* Core Conclusion */}
-                <div className="bg-gray-900 text-white p-8 rounded-xl shadow-lg transform hover:scale-[1.01] transition-transform">
-                    <h3 className="text-lg font-bold mb-3 flex items-center">
-                        <span className="mr-2">💡</span> 核心结论
-                    </h3>
-                    <p className="text-lg leading-relaxed font-medium opacity-90">
-                        {formatText(conclusion)}
-                    </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {/* Strengths */}
-                    <div className="bg-green-50 p-6 rounded-xl border border-green-100">
-                        <h3 className="text-green-800 font-bold mb-4 flex items-center">
-                            <span className="bg-green-200 text-green-800 p-1 rounded mr-2 text-xs">契合点</span>
-                            关键优势
+            {isFallback ? (
+                <VisualFallback />
+            ) : (
+                <div className="space-y-8">
+                    {/* Core Conclusion */}
+                    <div className="bg-gray-900 text-white p-8 rounded-xl shadow-lg transform hover:scale-[1.01] transition-transform">
+                        <h3 className="text-lg font-bold mb-3 flex items-center">
+                            <span className="mr-2">💡</span> 核心结论
                         </h3>
-                        <div className="text-green-900">
-                            {renderList(strengths)}
+                        <p className="text-lg leading-relaxed font-medium opacity-90">
+                            {formatText(conclusion)}
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Strengths */}
+                        <div className="bg-green-50 p-6 rounded-xl border border-green-100">
+                            <h3 className="text-green-800 font-bold mb-4 flex items-center">
+                                <span className="bg-green-200 text-green-800 p-1 rounded mr-2 text-xs">契合点</span>
+                                关键优势
+                            </h3>
+                            <div className="text-green-900">
+                                {renderList(strengths)}
+                            </div>
+                        </div>
+
+                        {/* Conflicts */}
+                        <div className="bg-red-50 p-6 rounded-xl border border-red-100">
+                            <h3 className="text-red-800 font-bold mb-4 flex items-center">
+                                <span className="bg-red-200 text-red-800 p-1 rounded mr-2 text-xs">冲突点</span>
+                                潜在雷区
+                            </h3>
+                            <div className="text-red-900">
+                                {renderList(conflicts)}
+                            </div>
                         </div>
                     </div>
 
-                    {/* Conflicts */}
-                    <div className="bg-red-50 p-6 rounded-xl border border-red-100">
-                        <h3 className="text-red-800 font-bold mb-4 flex items-center">
-                            <span className="bg-red-200 text-red-800 p-1 rounded mr-2 text-xs">冲突点</span>
-                            潜在雷区
-                        </h3>
-                        <div className="text-red-900">
-                            {renderList(conflicts)}
+                    {/* Advice */}
+                    <div className="bg-blue-50 p-8 rounded-xl border border-blue-100">
+                        <h3 className="text-blue-900 font-bold mb-4">🔮 长期相处建议</h3>
+                        <div className="text-blue-800 leading-relaxed">
+                            {renderList(advice)}
                         </div>
                     </div>
                 </div>
-
-                {/* Advice */}
-                <div className="bg-blue-50 p-8 rounded-xl border border-blue-100">
-                    <h3 className="text-blue-900 font-bold mb-4">🔮 长期相处建议</h3>
-                    <div className="text-blue-800 leading-relaxed">
-                        {renderList(advice)}
-                    </div>
-                </div>
-            </div>
+            )}
 
             {/* Share Actions */}
-            <div className="mt-12 pt-8 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-6">
-                {/* Share Report */}
+            <div className="mt-12 pt-8 border-t border-gray-100 grid grid-cols-1 md:grid-cols-2 gap-6" data-html2canvas-ignore>
+                {/* Share Image */}
                 <div className="bg-gray-50 p-6 rounded-xl border border-gray-200 text-center">
                     <h3 className="font-bold text-gray-900 mb-2">分享这份报告</h3>
-                    <p className="text-sm text-gray-500 mb-4">生成包含双方数据的永久链接</p>
+                    <p className="text-sm text-gray-500 mb-4">生成长图分享给朋友</p>
                     <button
-                        onClick={handleCopyLink}
-                        className="w-full py-3 bg-black text-white rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                        onClick={handleShareImage}
+                        disabled={generatingImage}
+                        className="w-full py-3 bg-black text-white rounded-lg font-bold hover:bg-gray-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        {copiedLink ? (
+                        {generatingImage ? (
                             <>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                已复制链接
+                                <div className="animate-spin h-4 w-4 border-2 border-white border-t-transparent rounded-full"></div>
+                                生成中...
                             </>
                         ) : (
                             <>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>
-                                复制报告链接
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                保存为图片
                             </>
                         )}
                     </button>
@@ -284,7 +359,7 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
                 </div>
             </div>
 
-            <div className="mt-8 text-center">
+            <div className="mt-8 text-center" data-html2canvas-ignore>
                 <button
                     onClick={() => window.location.href = '/'}
                     className="text-gray-400 hover:text-gray-600 font-medium text-sm transition-colors"

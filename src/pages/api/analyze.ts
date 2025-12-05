@@ -30,18 +30,28 @@ export const POST: APIRoute = async ({ request }) => {
 
         // --- 3. 缓存检查 (Cache Check) ---
         if (cacheKey) {
-            console.log(`Checking cache for key: ${cacheKey} `);
-            const cachedReport = await kv.get<string>(cacheKey);
+            try {
+                // Check if KV is configured
+                if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+                    console.log(`Checking cache for key: ${cacheKey} `);
+                    const cachedReport = await kv.get<string>(cacheKey);
 
-            if (cachedReport) {
-                console.log('Cache HIT: Returning cached report.');
-                // 注意：如果客户端期望的是流式响应，我们不能直接返回 JSON，但此处为了简化 token 浪费问题，
-                // 我们假设非流式响应是缓存的首选或可接受的回退。
-                // 如果需要严格的流式缓存，需要更复杂的实现，此处我们选择非流式返回缓存结果。
-                return new Response(JSON.stringify({ reportText: cachedReport }), {
-                    status: 200,
-                    headers: { 'Content-Type': 'application/json' },
-                });
+                    if (cachedReport) {
+                        console.log('Cache HIT: Returning cached report.');
+                        // 注意：如果客户端期望的是流式响应，我们不能直接返回 JSON，但此处为了简化 token 浪费问题，
+                        // 我们假设非流式响应是缓存的首选或可接受的回退。
+                        // 如果需要严格的流式缓存，需要更复杂的实现，此处我们选择非流式返回缓存结果。
+                        return new Response(JSON.stringify({ reportText: cachedReport }), {
+                            status: 200,
+                            headers: { 'Content-Type': 'application/json' },
+                        });
+                    }
+                } else {
+                    console.warn('Vercel KV not configured, skipping cache check.');
+                }
+            } catch (kvError) {
+                console.error('KV Cache Check Error:', kvError);
+                // Continue without cache if KV fails
             }
         }
         // --- 缓存检查结束 ---
@@ -141,8 +151,14 @@ export const POST: APIRoute = async ({ request }) => {
 
                         // 6. 流结束时，写入缓存
                         if (cacheKey && fullStreamContent) {
-                            console.log('Streaming complete. Writing to cache.');
-                            await kv.set(cacheKey, fullStreamContent, { ex: CACHE_TTL_SECONDS });
+                            try {
+                                if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+                                    console.log('Streaming complete. Writing to cache.');
+                                    await kv.set(cacheKey, fullStreamContent, { ex: CACHE_TTL_SECONDS });
+                                }
+                            } catch (kvError) {
+                                console.error('KV Cache Write Error:', kvError);
+                            }
                         }
 
                         controller.close();
@@ -215,8 +231,14 @@ export const POST: APIRoute = async ({ request }) => {
 
             // 7. 非流式结束后，写入缓存
             if (cacheKey && reportText) {
-                console.log('Non-streaming complete. Writing to cache.');
-                await kv.set(cacheKey, reportText, { ex: CACHE_TTL_SECONDS });
+                try {
+                    if (process.env.KV_REST_API_URL && process.env.KV_REST_API_TOKEN) {
+                        console.log('Non-streaming complete. Writing to cache.');
+                        await kv.set(cacheKey, reportText, { ex: CACHE_TTL_SECONDS });
+                    }
+                } catch (kvError) {
+                    console.error('KV Cache Write Error:', kvError);
+                }
             }
 
             return new Response(JSON.stringify({ reportText }), {

@@ -24,6 +24,7 @@ export interface AnalysisResult {
     compatibilityScore: number;
     summary: string;
     details: string;
+    comparisonMatrix?: ComparisonPoint[]; // Added for visual fallback
 }
 
 /**
@@ -294,7 +295,8 @@ export const fetchAIAnalysis = async (
         return {
             compatibilityScore: context.matchScore,
             summary: `基于数据的灵魂契合度：${context.matchScore}%`,
-            details: accumulatedText
+            details: accumulatedText,
+            comparisonMatrix: context.comparisonMatrix // Pass matrix for fallback
         };
     } catch (error) {
         console.error("AI Analysis Error:", error);
@@ -302,7 +304,8 @@ export const fetchAIAnalysis = async (
         return {
             compatibilityScore: context.matchScore,
             summary: `基于数据的灵魂契合度：${context.matchScore}% (离线模式)`,
-            details: `[系统提示：AI 服务暂时不可用，以下是基于原始数据的分析预览]\n\n${prompt}`
+            details: `[系统提示：AI 服务暂时不可用，以下是基于原始数据的分析预览]\n\n${prompt}`,
+            comparisonMatrix: context.comparisonMatrix // Pass matrix for fallback
         };
     }
 };

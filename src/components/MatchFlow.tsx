@@ -100,21 +100,6 @@ export default function MatchFlow() {
         }
     };
 
-    if (analysis) {
-        const hostProfile = hostHash ? decodeSoul(hostHash) : null;
-        const myProfile = myHash ? decodeSoul(myHash) : null;
-
-        return (
-            <AnalysisReport
-                result={analysis}
-                hostName={hostProfile?.name}
-                guestName={myProfile?.name}
-                hostHash={hostHash || undefined}
-                guestHash={myHash || undefined}
-            />
-        );
-    }
-
     // Settings Modal Component
     const SettingsModal = () => {
         const [tempConfig, setTempConfig] = useState(aiConfig);
@@ -207,6 +192,14 @@ export default function MatchFlow() {
                 >
                     返回重试
                 </button>
+                {/* Allow settings access even on error */}
+                <button
+                    onClick={() => setShowSettings(true)}
+                    className="mt-4 text-sm text-gray-500 underline hover:text-gray-700"
+                >
+                    检查 AI 设置
+                </button>
+                {showSettings && <SettingsModal />}
             </div>
         );
     }
@@ -216,7 +209,7 @@ export default function MatchFlow() {
             {/* Settings Button */}
             <button
                 onClick={() => setShowSettings(true)}
-                className="absolute top-0 right-0 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                className="absolute top-0 right-0 p-2 text-gray-400 hover:text-gray-600 transition-colors z-10"
                 title="AI 设置"
             >
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -227,7 +220,16 @@ export default function MatchFlow() {
 
             {showSettings && <SettingsModal />}
 
-            {hostHash ? (
+            {analysis ? (
+                <AnalysisReport
+                    result={analysis}
+                    hostName={hostHash ? decodeSoul(hostHash)?.name : undefined}
+                    guestName={myHash ? decodeSoul(myHash)?.name : undefined}
+                    hostHash={hostHash || undefined}
+                    guestHash={myHash || undefined}
+                    comparisonMatrix={analysis.comparisonMatrix}
+                />
+            ) : hostHash ? (
                 <div className="max-w-4xl mx-auto">
                     <div className="mb-8 text-center bg-gray-50 p-6 rounded-xl border border-gray-100">
                         <span className="inline-block px-3 py-1 bg-black text-white rounded-full text-xs font-mono mb-3">
@@ -236,7 +238,29 @@ export default function MatchFlow() {
                         <h2 className="text-2xl font-bold text-gray-900 mb-2">
                             {hostHash ? decodeSoul(hostHash)?.name : '对方'} 已就位，请完成你的灵魂档案
                         </h2>
-                        <p className="text-gray-500 text-sm font-mono break-all">目标编码: {hostHash}</p>
+                        <p className="text-gray-500 text-sm font-mono break-all mb-4">目标编码: {hostHash}</p>
+
+                        {/* Direct Hash Input for Self */}
+                        <div className="text-sm text-gray-500">
+                            已有自己的 Soul Hash？
+                            <button
+                                onClick={() => {
+                                    const hash = prompt("请输入你的 Soul Hash:");
+                                    if (hash) {
+                                        const profile = decodeSoul(hash);
+                                        if (profile) {
+                                            localStorage.setItem('soul_hash', hash);
+                                            window.location.reload();
+                                        } else {
+                                            alert("无效的 Hash");
+                                        }
+                                    }
+                                }}
+                                className="text-black font-bold underline hover:text-gray-700 ml-1"
+                            >
+                                直接导入
+                            </button>
+                        </div>
                     </div>
                     <Questionnaire onComplete={handleQuestionnaireComplete} />
                 </div>
