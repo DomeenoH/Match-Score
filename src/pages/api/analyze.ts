@@ -1,6 +1,12 @@
 import type { APIRoute } from 'astro';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
+// 1. 引入 Vercel KV
+import { kv } from '@vercel/kv';
+
+// 缓存过期时间：7天 (秒)
+const CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
+
 export const POST: APIRoute = async ({ request }) => {
     try {
         const rawBody = await request.text();
@@ -13,7 +19,7 @@ export const POST: APIRoute = async ({ request }) => {
             throw new Error(`Invalid JSON body: ${e instanceof Error ? e.message : String(e)} `);
         }
 
-        const { prompt, stream, config } = body;
+        const { prompt, stream, config, cacheKey } = body;
 
         if (!prompt) {
             return new Response(JSON.stringify({ error: 'Prompt is required' }), {
@@ -21,6 +27,24 @@ export const POST: APIRoute = async ({ request }) => {
                 headers: { 'Content-Type': 'application/json' },
             });
         }
+
+        // --- 3. 缓存检查 (Cache Check) ---
+        if (cacheKey) {
+            console.log(`Checking cache for key: ${cacheKey} `);
+            const cachedReport = await kv.get<string>(cacheKey);
+
+            if (cachedReport) {
+                console.log('Cache HIT: Returning cached report.');
+                // 注意：如果客户端期望的是流式响应，我们不能直接返回 JSON，但此处为了简化 token 浪费问题，
+                // 我们假设非流式响应是缓存的首选或可接受的回退。
+                // 如果需要严格的流式缓存，需要更复杂的实现，此处我们选择非流式返回缓存结果。
+                return new Response(JSON.stringify({ reportText: cachedReport }), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                });
+            }
+        }
+        // --- 缓存检查结束 ---
 
         // Log prompt preview
         console.log('Analyzing prompt:', prompt.substring(0, 50) + '...');
@@ -40,6 +64,9 @@ export const POST: APIRoute = async ({ request }) => {
         if (stream) {
             // Streaming Response
             const encoder = new TextEncoder();
+            // 4. 存储流式响应的完整内容
+            let fullStreamContent = '';
+
             const readable = new ReadableStream({
                 async start(controller) {
                     try {
@@ -86,6 +113,7 @@ export const POST: APIRoute = async ({ request }) => {
                                             const json = JSON.parse(data);
                                             const content = json.choices?.[0]?.delta?.content || '';
                                             if (content) {
+                                                fullStreamContent += content; // 积累内容
                                                 controller.enqueue(encoder.encode(content));
                                             }
                                         } catch (e) {
@@ -105,10 +133,18 @@ export const POST: APIRoute = async ({ request }) => {
                             for await (const chunk of result.stream) {
                                 const chunkText = chunk.text();
                                 if (chunkText) {
+                                    fullStreamContent += chunkText; // 积累内容
                                     controller.enqueue(encoder.encode(chunkText));
                                 }
                             }
                         }
+
+                        // 6. 流结束时，写入缓存
+                        if (cacheKey && fullStreamContent) {
+                            console.log('Streaming complete. Writing to cache.');
+                            await kv.set(cacheKey, fullStreamContent, { ex: CACHE_TTL_SECONDS });
+                        }
+
                         controller.close();
                     } catch (error) {
                         console.error('Streaming Error:', error);
@@ -175,6 +211,12 @@ export const POST: APIRoute = async ({ request }) => {
                 const result = await model.generateContent(prompt);
                 const response = await result.response;
                 reportText = response.text();
+            }
+
+            // 7. 非流式结束后，写入缓存
+            if (cacheKey && reportText) {
+                console.log('Non-streaming complete. Writing to cache.');
+                await kv.set(cacheKey, reportText, { ex: CACHE_TTL_SECONDS });
             }
 
             return new Response(JSON.stringify({ reportText }), {
