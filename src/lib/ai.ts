@@ -97,15 +97,66 @@ export const createAIPrompt = (context: AIContext): string => {
     return prompt;
 };
 
-export const fetchAIAnalysis = async (profileA: SoulProfile, profileB: SoulProfile): Promise<AnalysisResult> => {
+const retryFetch = async (url: string, options: RequestInit, retries = 3, backoff = 1000): Promise<Response> => {
+    try {
+        const response = await fetch(url, options);
+        if (response.ok) return response;
+
+        // Retry on specific error codes
+        if ([429, 500, 502, 503, 504].includes(response.status) && retries > 0) {
+            console.warn(`Request failed with status ${response.status}. Retrying in ${backoff}ms...`);
+            await new Promise(resolve => setTimeout(resolve, backoff));
+            return retryFetch(url, options, retries - 1, backoff * 2);
+        }
+
+        return response;
+    } catch (error) {
+        if (retries > 0) {
+            console.warn(`Request failed with error. Retrying in ${backoff}ms...`, error);
+            await new Promise(resolve => setTimeout(resolve, backoff));
+            return retryFetch(url, options, retries - 1, backoff * 2);
+        }
+        throw error;
+    }
+};
+
+export const fetchAIAnalysis = async (
+    profileA: SoulProfile,
+    profileB: SoulProfile,
+    onRetry?: (count: number) => void
+): Promise<AnalysisResult> => {
     // 1. Generate Context
     const context = generateAIContext(profileA, profileB);
 
     // 2. Create Prompt
     const prompt = createAIPrompt(context);
 
+    const endpoint = import.meta.env.VITE_CUSTOM_AI_ENDPOINT || '/api/analyze';
+
     try {
-        const response = await fetch('/api/analyze', {
+        // Wrapper to track retries
+        const fetchWithTracking = async (url: string, options: RequestInit, retries = 3, backoff = 1000): Promise<Response> => {
+            try {
+                const response = await fetch(url, options);
+                if (response.ok) return response;
+
+                if ([429, 500, 502, 503, 504].includes(response.status) && retries > 0) {
+                    if (onRetry) onRetry(4 - retries); // 1st retry, 2nd retry...
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                    return fetchWithTracking(url, options, retries - 1, backoff * 2);
+                }
+                return response;
+            } catch (error) {
+                if (retries > 0) {
+                    if (onRetry) onRetry(4 - retries);
+                    await new Promise(resolve => setTimeout(resolve, backoff));
+                    return fetchWithTracking(url, options, retries - 1, backoff * 2);
+                }
+                throw error;
+            }
+        };
+
+        const response = await fetchWithTracking(endpoint, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',

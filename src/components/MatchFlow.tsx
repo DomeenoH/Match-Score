@@ -11,6 +11,7 @@ export default function MatchFlow() {
     const [analysis, setAnalysis] = useState<AnalysisResult | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [retryCount, setRetryCount] = useState(0);
 
     useEffect(() => {
         const params = new URLSearchParams(window.location.search);
@@ -41,6 +42,7 @@ export default function MatchFlow() {
         setMyHash(myHash);
         setLoading(true);
         setError(null);
+        setRetryCount(0);
 
         try {
             if (hostHash) {
@@ -48,7 +50,11 @@ export default function MatchFlow() {
                 const myProfile = decodeSoul(myHash);
 
                 if (hostProfile && myProfile) {
-                    const result = await fetchAIAnalysis(hostProfile, myProfile);
+                    const result = await fetchAIAnalysis(
+                        hostProfile,
+                        myProfile,
+                        (count) => setRetryCount(count)
+                    );
                     setAnalysis(result);
                 } else {
                     setError("解析 Soul Profile 失败，请重试。");
@@ -59,6 +65,7 @@ export default function MatchFlow() {
             setError("分析过程中发生错误，请稍后重试。");
         } finally {
             setLoading(false);
+            setRetryCount(0);
         }
     };
 
@@ -78,6 +85,11 @@ export default function MatchFlow() {
                 <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-black mb-4"></div>
                 <h3 className="text-xl font-bold text-gray-900">正在进行灵魂共鸣分析...</h3>
                 <p className="text-gray-500 mt-2">AI 正在对比你们的 50 个维度数据</p>
+                {retryCount > 0 && (
+                    <div className="mt-4 p-3 bg-yellow-50 text-yellow-800 rounded-lg text-sm animate-pulse border border-yellow-200">
+                        ⚠️ 对方服务响应缓慢，正在尝试第 {retryCount} 次重连...
+                    </div>
+                )}
             </div>
         );
     }
