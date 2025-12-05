@@ -76,3 +76,11 @@ export const QUESTIONS: Question[] = [
     { id: 49, text: "你对待'规则'的态度？", dimension: 'values', options: [{ value: 1, label: "严格遵守" }, { value: 2, label: "尽量遵守" }, { value: 3, label: "看情况" }, { value: 4, label: "灵活变通" }, { value: 5, label: "规则是用来打破的" }] },
     { id: 50, text: "你认为'平淡'是婚姻的最终归宿吗？", dimension: 'values', options: [{ value: 1, label: "绝不接受平淡" }, { value: 2, label: "努力抗拒" }, { value: 3, label: "接受但需调剂" }, { value: 4, label: "比较接受" }, { value: 5, label: "平淡才是真" }] },
 ];
+
+// 新增维度中文映射
+export const DIMENSION_DETAILS: Record<Dimension, { title: string; description: string }> = {
+    lifestyle: { title: "第一步：生活习惯", description: "关于日常作息、卫生、娱乐等硬性习惯的考察。" },
+    finance: { title: "第二步：金钱与财务", description: "关于消费观、储蓄和财务透明度的考察。" },
+    communication: { title: "第三步：沟通与情感", description: "关于冲突处理、社交需求和情感表达模式的考察。" },
+    values: { title: "第四步：核心价值观", description: "关于人生目标、道德边界和风险偏好的深层考察。" },
+};
