@@ -25,6 +25,7 @@
 - **样式系统**: [Tailwind CSS](https://tailwindcss.com/)
 - **AI 引擎**: [Google Generative AI SDK](https://github.com/google/google-api-nodejs-client)
 - **数据编码**: [LZ-String](https://github.com/pieroxy/lz-string) (URL Safe Compression)
+- **缓存系统**: [Redis](https://redis.io/) (via ioredis)
 - **部署**: Vercel Serverless (Adapter Configured)
 
 [![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fyour-username%2Fmatch-score&env=GEMINI_API_KEY)
@@ -60,6 +61,9 @@ touch .env
 GEMINI_API_KEY=your_api_key_here
 # 可选：自定义 AI Endpoint (如果使用代理或自定义服务)
 # VITE_CUSTOM_AI_ENDPOINT=https://your-custom-endpoint.com/v1/chat/completions
+
+# 可选：Redis 缓存配置 (用于缓存 AI 分析结果，加速二次访问)
+# REDIS_URL=redis://default:password@your-redis-host:port
 ```
 
 ### 4. 启动开发服务器
