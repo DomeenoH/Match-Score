@@ -197,6 +197,7 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
                 backgroundColor: '#ffffff',
                 logging: false,
                 windowWidth: 1200, // Force desktop width for better layout
+                ignoreElements: (element) => element.classList.contains('hide-in-report'),
             });
 
             const image = canvas.toDataURL("image/png");
@@ -461,7 +462,7 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
 
             {/* Invite Card Modal/Section */}
             {showInviteCard && guestHash && (
-                <div className="mt-8 space-y-4" data-html2canvas-ignore>
+                <div className="mt-8 space-y-4 hide-in-report">
                     {/* The Invitation Card */}
                     <div
                         ref={inviteCardRef}
