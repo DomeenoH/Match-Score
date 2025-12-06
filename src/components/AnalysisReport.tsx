@@ -1,7 +1,7 @@
 import React, { useState, useRef, useMemo } from 'react';
 import type { AnalysisResult, ComparisonPoint } from '../lib/ai';
 import { decodeSoul } from '../lib/codec';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import type { ScenarioType } from '../lib/questions';
 
@@ -186,6 +186,10 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
     const handleShareImage = async () => {
         if (!reportRef.current) return;
         setGeneratingImage(true);
+
+        // Wait a bit for any rendering to settle
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         try {
             const canvas = await html2canvas(reportRef.current, {
                 scale: 2,
@@ -193,16 +197,24 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
                 backgroundColor: '#ffffff',
                 logging: false,
                 windowWidth: 1200, // Force desktop width for better layout
+                onclone: (clonedDoc) => {
+                    const clonedElement = clonedDoc.querySelector('[data-report-container]') as HTMLElement;
+                    if (clonedElement) {
+                        clonedElement.style.transform = 'none';
+                    }
+                }
             });
 
             const image = canvas.toDataURL("image/png");
             const link = document.createElement('a');
             link.href = image;
             link.download = `MatchScore_${nameA}_${nameB}.png`;
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
         } catch (error) {
             console.error("Failed to generate image:", error);
-            alert("生成图片失败，请重试");
+            alert(`生成图片失败: ${error instanceof Error ? error.message : '未知错误'}`);
         } finally {
             setGeneratingImage(false);
         }
@@ -221,6 +233,10 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
     const handleSaveInviteCard = async () => {
         if (!inviteCardRef.current) return;
         setGeneratingInvite(true);
+
+        // Wait a bit for any rendering to settle
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         try {
             const canvas = await html2canvas(inviteCardRef.current, {
                 scale: 2,
@@ -228,15 +244,23 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
                 backgroundColor: null,
                 logging: false,
                 windowWidth: 600,
+                onclone: (clonedDoc) => {
+                    const clonedElement = clonedDoc.querySelector('[data-invite-card-container]') as HTMLElement;
+                    if (clonedElement) {
+                        clonedElement.style.transform = 'none';
+                    }
+                }
             });
             const image = canvas.toDataURL("image/png");
             const link = document.createElement('a');
             link.href = image;
             link.download = `MatchScore_Invite_${guestUserName}.png`;
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
         } catch (error) {
             console.error("Failed to generate invite image:", error);
-            alert("生成邀请卡失败，请尝试复制链接");
+            alert(`生成邀请卡失败: ${error instanceof Error ? error.message : '未知错误'}`);
         } finally {
             setGeneratingInvite(false);
         }
@@ -305,7 +329,7 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
     };
 
     return (
-        <div ref={reportRef} className="max-w-4xl mx-auto p-6 sm:p-10 bg-white border border-gray-200 rounded-2xl shadow-xl">
+        <div ref={reportRef} data-report-container className="max-w-4xl mx-auto p-6 sm:p-10 bg-white border border-gray-200 rounded-2xl shadow-xl">
             <div className="text-center mb-10">
                 <div className="inline-block p-3 rounded-full bg-black text-white mb-4">
                     <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" /></svg>
@@ -453,6 +477,7 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
                     {/* The Invitation Card */}
                     <div
                         ref={inviteCardRef}
+                        data-invite-card-container
                         className={`relative overflow-hidden rounded-3xl ${theme.bgGradient} p-8 shadow-2xl`}
                         style={{ minHeight: '480px' }}
                     >
@@ -497,7 +522,7 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
 
                             {/* QR Code */}
                             <div className="bg-white p-4 rounded-2xl shadow-lg mb-4">
-                                <QRCodeSVG
+                                <QRCodeCanvas
                                     value={guestShareUrl}
                                     size={140}
                                     level="M"

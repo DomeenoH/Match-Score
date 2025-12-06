@@ -1,6 +1,6 @@
 import React, { useState, useMemo, useRef } from 'react';
 import { decodeSoul } from '../lib/codec';
-import { QRCodeSVG } from 'qrcode.react';
+import { QRCodeCanvas } from 'qrcode.react';
 import html2canvas from 'html2canvas';
 import type { ScenarioType } from '../lib/questions';
 
@@ -85,23 +85,36 @@ ${hash}`;
     const handleSaveCard = async () => {
         if (!cardRef.current) return;
         setGeneratingImage(true);
+
+        // Wait a bit for any rendering to settle
+        await new Promise(resolve => setTimeout(resolve, 100));
+
         try {
             const canvas = await html2canvas(cardRef.current, {
                 scale: 2,
                 useCORS: true,
-                backgroundColor: null,
-                logging: false,
+                backgroundColor: null, // Transparent to pick up gradient
+                logging: true, // Enable logging to debug
                 windowWidth: 600,
+                onclone: (clonedDoc) => {
+                    // Ensure the cloned element is visible and has proper layout
+                    const clonedElement = clonedDoc.querySelector('[data-card-container]') as HTMLElement;
+                    if (clonedElement) {
+                        clonedElement.style.transform = 'none'; // Reset any transforms
+                    }
+                }
             });
 
             const image = canvas.toDataURL("image/png");
             const link = document.createElement('a');
             link.href = image;
             link.download = `MatchScore_Invite_${userName}.png`;
+            document.body.appendChild(link);
             link.click();
+            document.body.removeChild(link);
         } catch (error) {
             console.error("Failed to generate image:", error);
-            alert("生成图片失败，请尝试复制链接分享");
+            alert(`生成图片失败: ${error instanceof Error ? error.message : '未知错误'}`);
         } finally {
             setGeneratingImage(false);
         }
@@ -137,6 +150,7 @@ ${hash}`;
             {/* Invitation Card - This is what gets captured as image */}
             <div
                 ref={cardRef}
+                data-card-container
                 className={`relative overflow-hidden rounded-3xl ${theme.bgGradient} p-8 shadow-2xl`}
                 style={{ minHeight: '520px' }}
             >
@@ -184,7 +198,7 @@ ${hash}`;
 
                     {/* QR Code */}
                     <div className="bg-white p-4 rounded-2xl shadow-lg mb-6">
-                        <QRCodeSVG
+                        <QRCodeCanvas
                             value={shareUrl}
                             size={160}
                             level="M"
