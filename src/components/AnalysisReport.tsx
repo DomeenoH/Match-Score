@@ -1,6 +1,42 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import type { AnalysisResult, ComparisonPoint } from '../lib/ai';
+import { decodeSoul } from '../lib/codec';
+import { QRCodeSVG } from 'qrcode.react';
 import html2canvas from 'html2canvas';
+import type { ScenarioType } from '../lib/questions';
+
+// Theme configuration based on scenario type
+const THEME_CONFIG: Record<ScenarioType, {
+    primary: string;
+    secondary: string;
+    bgGradient: string;
+    borderColor: string;
+    textPrimary: string;
+    textSecondary: string;
+    emoji: string;
+    title: string;
+}> = {
+    couple: {
+        primary: 'from-purple-600 to-pink-500',
+        secondary: 'bg-gradient-to-br from-purple-50 to-pink-50',
+        bgGradient: 'bg-gradient-to-br from-purple-100 via-pink-50 to-rose-100',
+        borderColor: 'border-pink-200',
+        textPrimary: 'text-purple-900',
+        textSecondary: 'text-pink-600',
+        emoji: '💕',
+        title: '情侣契合度测试'
+    },
+    friend: {
+        primary: 'from-blue-500 to-yellow-400',
+        secondary: 'bg-gradient-to-br from-blue-50 to-yellow-50',
+        bgGradient: 'bg-gradient-to-br from-blue-100 via-cyan-50 to-yellow-100',
+        borderColor: 'border-blue-200',
+        textPrimary: 'text-blue-900',
+        textSecondary: 'text-yellow-600',
+        emoji: '🤝',
+        title: '朋友默契度测试'
+    }
+};
 
 interface AnalysisReportProps {
     result: AnalysisResult;
@@ -17,7 +53,27 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
     const nameB = guestName || 'B';
     const [copiedHash, setCopiedHash] = useState(false);
     const [generatingImage, setGeneratingImage] = useState(false);
+    const [showInviteCard, setShowInviteCard] = useState(false);
+    const [generatingInvite, setGeneratingInvite] = useState(false);
     const reportRef = useRef<HTMLDivElement>(null);
+    const inviteCardRef = useRef<HTMLDivElement>(null);
+
+    // Decode guest hash to get scenario type
+    const guestProfile = useMemo(() => {
+        if (!guestHash) return null;
+        try {
+            return decodeSoul(guestHash);
+        } catch {
+            return null;
+        }
+    }, [guestHash]);
+
+    const guestUserName = guestProfile?.name || nameB;
+    const scenario: ScenarioType = guestProfile?.type || 'couple';
+    const theme = THEME_CONFIG[scenario];
+    const guestShareUrl = typeof window !== 'undefined' && guestHash
+        ? `${window.location.origin}/match?host=${guestHash}`
+        : '';
 
     // Check if we are in fallback mode
     const isFallback = rawText.includes('[系统提示：AI 服务暂时不可用');
@@ -154,11 +210,35 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
 
     const handleCopyHash = () => {
         if (guestHash) {
-            const text = `【Match Score 邀请函】\n朋友，我已完成我的灵魂契合度测试。点击下方链接，完成你的问卷，看看我们的相性如何：\n\n${window.location.origin}/match?host=${guestHash}\n\n或直接复制我的 Match Score 编码：\n${guestHash}`;
+            const text = `【Match Score 邀请函】\n我是${guestUserName}，我已完成${theme.title}。点击下方链接，完成你的问卷，看看我们的相性如何：\n\n${guestShareUrl}\n\n或直接复制我的 Match Score 编码：\n${guestHash}`;
             navigator.clipboard.writeText(text).then(() => {
                 setCopiedHash(true);
                 setTimeout(() => setCopiedHash(false), 2000);
             });
+        }
+    };
+
+    const handleSaveInviteCard = async () => {
+        if (!inviteCardRef.current) return;
+        setGeneratingInvite(true);
+        try {
+            const canvas = await html2canvas(inviteCardRef.current, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: null,
+                logging: false,
+                windowWidth: 600,
+            });
+            const image = canvas.toDataURL("image/png");
+            const link = document.createElement('a');
+            link.href = image;
+            link.download = `MatchScore_Invite_${guestUserName}.png`;
+            link.click();
+        } catch (error) {
+            console.error("Failed to generate invite image:", error);
+            alert("生成邀请卡失败，请尝试复制链接");
+        } finally {
+            setGeneratingInvite(false);
         }
     };
 
@@ -341,28 +421,136 @@ export default function AnalysisReport({ result, hostName, guestName, hostHash, 
                     </button>
                 </div>
 
-                {/* My Hash */}
-                <div className="bg-indigo-50 p-6 rounded-xl border border-indigo-100 text-center">
-                    <h3 className="font-bold text-indigo-900 mb-2">我也要发起测试</h3>
-                    <p className="text-sm text-indigo-600 mb-4">获取你的专属邀请函，寻找其他共鸣</p>
-                    <button
-                        onClick={handleCopyHash}
-                        className="w-full py-3 bg-indigo-600 text-white rounded-lg font-bold hover:bg-indigo-700 transition-colors flex items-center justify-center gap-2"
+                {/* My Hash - Enhanced Invite Card */}
+                <div className={`${theme.secondary} p-6 rounded-xl border ${theme.borderColor} text-center`}>
+                    <h3 className={`font-bold ${theme.textPrimary} mb-2`}>我也要发起测试</h3>
+                    <p className={`text-sm ${theme.textSecondary} mb-4`}>获取你的专属邀请卡，寻找其他共鸣</p>
+                    <div className="flex gap-2">
+                        <button
+                            onClick={() => setShowInviteCard(!showInviteCard)}
+                            className={`flex-1 py-3 bg-gradient-to-r ${theme.primary} text-white rounded-lg font-bold hover:opacity-90 transition-all flex items-center justify-center gap-2`}
+                        >
+                            <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                            {showInviteCard ? '收起邀请卡' : '生成邀请卡'}
+                        </button>
+                        <button
+                            onClick={handleCopyHash}
+                            className={`px-4 py-3 bg-white border ${theme.borderColor} ${theme.textPrimary} rounded-lg font-bold hover:bg-gray-50 transition-colors flex items-center justify-center`}
+                        >
+                            {copiedHash ? (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12" /></svg>
+                            ) : (
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2" /><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" /></svg>
+                            )}
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Invite Card Modal/Section */}
+            {showInviteCard && guestHash && (
+                <div className="mt-8 space-y-4" data-html2canvas-ignore>
+                    {/* The Invitation Card */}
+                    <div
+                        ref={inviteCardRef}
+                        className={`relative overflow-hidden rounded-3xl ${theme.bgGradient} p-8 shadow-2xl`}
+                        style={{ minHeight: '480px' }}
                     >
-                        {copiedHash ? (
+                        {/* Decorative Elements */}
+                        <div className="absolute top-0 right-0 w-32 h-32 bg-white/20 rounded-full -translate-y-1/2 translate-x-1/2 blur-xl" />
+                        <div className="absolute bottom-0 left-0 w-40 h-40 bg-white/20 rounded-full translate-y-1/2 -translate-x-1/2 blur-xl" />
+
+                        {/* Floating particles based on theme */}
+                        {scenario === 'couple' && (
                             <>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>
-                                已复制邀请函
+                                <div className="absolute top-16 left-8 text-2xl animate-pulse">💕</div>
+                                <div className="absolute top-24 right-10 text-lg animate-bounce" style={{ animationDelay: '0.5s' }}>💗</div>
+                                <div className="absolute bottom-32 left-6 text-xl animate-pulse" style={{ animationDelay: '1s' }}>✨</div>
+                            </>
+                        )}
+                        {scenario === 'friend' && (
+                            <>
+                                <div className="absolute top-16 left-8 text-2xl animate-pulse">⭐</div>
+                                <div className="absolute top-24 right-10 text-lg animate-bounce" style={{ animationDelay: '0.5s' }}>🎯</div>
+                                <div className="absolute bottom-32 left-6 text-xl animate-pulse" style={{ animationDelay: '1s' }}>🌟</div>
+                            </>
+                        )}
+
+                        {/* Card Content */}
+                        <div className="relative z-10 flex flex-col items-center text-center">
+                            <div className="text-5xl mb-4">{theme.emoji}</div>
+                            <h2 className={`text-2xl font-bold ${theme.textPrimary} mb-2`}>
+                                Match Score 邀请函
+                            </h2>
+                            <p className={`text-sm ${theme.textSecondary} font-medium mb-4`}>
+                                {theme.title}
+                            </p>
+
+                            <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/70 backdrop-blur-sm border ${theme.borderColor} mb-4`}>
+                                <span className="text-gray-500 text-sm">发起人</span>
+                                <span className={`font-bold ${theme.textPrimary}`}>{guestUserName}</span>
+                            </div>
+
+                            <p className={`text-sm ${theme.textPrimary} opacity-80 mb-6`}>
+                                「邀请你进行一次灵魂深度的碰撞」
+                            </p>
+
+                            {/* QR Code */}
+                            <div className="bg-white p-4 rounded-2xl shadow-lg mb-4">
+                                <QRCodeSVG
+                                    value={guestShareUrl}
+                                    size={140}
+                                    level="M"
+                                    includeMargin={false}
+                                    bgColor="#ffffff"
+                                    fgColor="#1a1a1a"
+                                />
+                            </div>
+
+                            {/* Hash display */}
+                            <div className={`w-full max-w-xs bg-white/50 backdrop-blur-sm rounded-xl p-3 border ${theme.borderColor}`}>
+                                <p className="text-xs text-gray-500 mb-1">Match Score 编码</p>
+                                <code className="block text-xs font-mono text-gray-600 break-all line-clamp-2">
+                                    {guestHash.length > 40 ? `${guestHash.substring(0, 40)}...` : guestHash}
+                                </code>
+                            </div>
+
+                            {/* Logo */}
+                            <div className="mt-4 flex items-center gap-2">
+                                <div className={`w-5 h-5 rounded-full bg-gradient-to-r ${theme.primary} flex items-center justify-center`}>
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                                        <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                                    </svg>
+                                </div>
+                                <span className={`text-sm font-semibold ${theme.textPrimary}`}>Match Score</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* Save Card Button */}
+                    <button
+                        onClick={handleSaveInviteCard}
+                        disabled={generatingInvite}
+                        className={`w-full py-4 rounded-2xl font-bold text-white bg-gradient-to-r ${theme.primary} hover:opacity-90 transition-all shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3`}
+                    >
+                        {generatingInvite ? (
+                            <>
+                                <div className="animate-spin h-5 w-5 border-2 border-white border-t-transparent rounded-full" />
+                                生成中...
                             </>
                         ) : (
                             <>
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                                复制我的邀请函
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                                    <polyline points="7 10 12 15 17 10" />
+                                    <line x1="12" y1="15" x2="12" y2="3" />
+                                </svg>
+                                保存邀请卡到相册
                             </>
                         )}
                     </button>
                 </div>
-            </div>
+            )}
 
             <div className="mt-8 text-center" data-html2canvas-ignore>
                 <button
