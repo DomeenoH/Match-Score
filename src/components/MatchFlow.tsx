@@ -3,7 +3,7 @@ import MatchInput from './MatchInput';
 import Questionnaire from './Questionnaire';
 import AnalysisReport from './AnalysisReport';
 import { decodeSoul } from '../lib/codec';
-import { fetchAIAnalysis, type AnalysisResult, calculateDistance, type AIConfig } from '../lib/ai';
+import { fetchAIAnalysis, type AnalysisResult, calculateDistance, type AIConfig, RateLimitError } from '../lib/ai';
 import type { ScenarioType } from '../lib/questions';
 
 export default function MatchFlow() {
@@ -96,9 +96,15 @@ export default function MatchFlow() {
             }
         } catch (e: any) {
             console.error("MatchFlow: Analysis error", e);
-            // 优先显示具体的错误信息（如类型不匹配）
-            const errorMessage = e?.message || "分析过程中发生错误，请稍后重试。";
-            setError(errorMessage);
+
+            // Specific handling for Rate Limit Error
+            if (e instanceof RateLimitError) {
+                setError(`RATE_LIMIT:${e.message}`);
+            } else {
+                // 优先显示具体的错误信息（如类型不匹配）
+                const errorMessage = e?.message || "分析过程中发生错误，请稍后重试。";
+                setError(errorMessage);
+            }
         } finally {
             setLoading(false);
             setRetryCount(0);
@@ -246,13 +252,23 @@ export default function MatchFlow() {
 
     // 检测类型不匹配错误
     const isTypeMismatchError = error?.includes('[TYPE_MISMATCH]');
-    const displayError = error?.replace('[TYPE_MISMATCH] ', '');
+    const isRateLimitError = error?.startsWith('RATE_LIMIT:');
+
+    // Process error message for display
+    let displayError = error;
+    if (isTypeMismatchError) {
+        displayError = error ? error.replace('[TYPE_MISMATCH] ', '') : null;
+    } else if (isRateLimitError) {
+        displayError = "今日免费 AI 分析次数已用完";
+    }
 
     if (error) {
         return (
             <div className="max-w-md mx-auto mt-10 p-6 bg-red-50 border border-red-200 rounded-lg text-center">
                 <h3 className="text-lg font-bold text-red-800 mb-2">
-                    {isTypeMismatchError ? '⚠️ 类型不匹配' : '出错了'}
+                    {isTypeMismatchError && '⚠️ 类型不匹配'}
+                    {isRateLimitError && '⏳ 今日额度耗尽'}
+                    {!isTypeMismatchError && !isRateLimitError && '出错了'}
                 </h3>
                 <p className="text-red-600 mb-4">{displayError}</p>
 
@@ -274,6 +290,19 @@ export default function MatchFlow() {
                             🗑️ 清除本地缓存并重新测试
                         </button>
                     </div>
+                ) : isRateLimitError ? (
+                    <div className="space-y-4">
+                        <p className="text-sm text-gray-700">
+                            抱歉，我们的免费 Key 每日调用次数已达上限。
+                            <br />请明天再来，或者填入您自己的 API Key (OpenAI/Gemini) 继续使用。
+                        </p>
+                        <button
+                            onClick={() => setShowSettings(true)}
+                            className="px-6 py-3 bg-black text-white font-bold rounded-lg hover:bg-gray-800 transition-colors shadow-md flex items-center justify-center gap-2 mx-auto"
+                        >
+                            🔑 填入 API Key 继续
+                        </button>
+                    </div>
                 ) : (
                     <button
                         onClick={() => window.location.href = '/match'}
@@ -283,13 +312,15 @@ export default function MatchFlow() {
                     </button>
                 )}
 
-                {/* Allow settings access even on error */}
-                <button
-                    onClick={() => setShowSettings(true)}
-                    className="mt-4 block mx-auto text-sm text-gray-500 underline hover:text-gray-700"
-                >
-                    检查 AI 设置
-                </button>
+                {/* Allow settings access even on error, unless it is already the primary action (RateLimit) */}
+                {!isRateLimitError && (
+                    <button
+                        onClick={() => setShowSettings(true)}
+                        className="mt-4 block mx-auto text-sm text-gray-500 underline hover:text-gray-700"
+                    >
+                        检查 AI 设置
+                    </button>
+                )}
                 {showSettings && <SettingsModal />}
             </div>
         );

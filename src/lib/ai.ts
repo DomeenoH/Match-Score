@@ -13,6 +13,13 @@ export interface ComparisonPoint {
     difference: number; // 绝对差值 (0-4)
 }
 
+export class RateLimitError extends Error {
+    constructor(message: string) {
+        super(message);
+        this.name = 'RateLimitError';
+    }
+}
+
 export interface AIContext {
     hostProfile: SoulProfile;
     guestProfile: SoulProfile;
@@ -221,8 +228,8 @@ export const retryFetch = async (
         const response = await fetch(url, options);
         if (response.ok) return response;
 
-        // Retry on specific error codes
-        if ([429, 500, 502, 503, 504].includes(response.status) && retries > 0) {
+        // Retry on specific error codes (removed 429 from retry list)
+        if ([500, 502, 503, 504].includes(response.status) && retries > 0) {
             const currentRetry = 4 - retries; // Assuming initial retries = 3
             console.warn(`Request failed with status ${response.status}. Retrying in ${backoff}ms... (Attempt ${currentRetry})`);
 
@@ -355,6 +362,19 @@ export const fetchAIAnalysis = async (
 
         if (!response.ok) {
             const errorText = await response.text().catch(() => 'Unknown error');
+
+            // Handle Rate Limit specifically
+            if (response.status === 429) {
+                let errorMessage = "Rate limit exceeded";
+                try {
+                    const errorJson = JSON.parse(errorText);
+                    if (errorJson.error) errorMessage = errorJson.error;
+                } catch (e) {
+                    // ignore json parse error
+                }
+                throw new RateLimitError(errorMessage);
+            }
+
             throw new Error(`AI Analysis request failed: ${response.status} ${response.statusText} - ${errorText}`);
         }
 
@@ -391,6 +411,11 @@ export const fetchAIAnalysis = async (
             comparisonMatrix: context.comparisonMatrix // Pass matrix for fallback
         };
     } catch (error) {
+        // Propagate RateLimitError directly, do not fallback
+        if (error instanceof RateLimitError) {
+            throw error;
+        }
+
         console.error("AI Analysis Error:", error);
         // Fallback to mock response if API fails
         return {
