@@ -35,6 +35,43 @@ export const POST: APIRoute = async ({ request }) => {
 
         const { prompt, stream, config, cacheKey } = body;
 
+        // --- 2. Rate Limiting (Added) ---
+        // Get IP (handles Vercel/Proxy headers)
+        const ip = request.headers.get('x-forwarded-for')?.split(',')[0].trim() ||
+            request.headers.get('x-real-ip') ||
+            'unknown';
+
+        // Priority: User Key > Rate Limit
+        const hasUserKey = !!config?.apiKey;
+
+        if (!hasUserKey && redis) {
+            const limitKey = `ratelimit:analyze:${ip}`;
+            try {
+                // Atomic Increment
+                const currentCount = await redis.incr(limitKey);
+
+                // Set Expiry if it's the first request
+                if (currentCount === 1) {
+                    await redis.expire(limitKey, 60 * 60 * 24); // 24 hours
+                }
+
+                // Check Limit (10 per 24h)
+                if (currentCount > 10) {
+                    console.warn(`Rate limit exceeded for IP: ${ip}`);
+                    return new Response(JSON.stringify({
+                        error: "Daily analysis limit reached. Please try again tomorrow."
+                    }), {
+                        status: 429,
+                        headers: { 'Content-Type': 'application/json' },
+                    });
+                }
+            } catch (err) {
+                console.error('Rate limit check failed:', err);
+                // Fail open: Allow request if Redis fails
+            }
+        }
+        // --- End Rate Limiting ---
+
         if (!prompt) {
             return new Response(JSON.stringify({ error: 'Prompt is required' }), {
                 status: 400,
